@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Extreme Fighters</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <canvas></canvas>
+        <div id="joystick-container">
+            <div id="joystick"></div>
+        </div>
+        <button id="fight-button" onclick="playerFight()">Fight</button>
+        <div id="result" style="display: none;">
+            <h1 id="result-text"></h1>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </body>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            box-shadow: #000000 solid 7px;
+        }
+
+        #joystick-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+            background-color: rgba(0, 0, 0, 0.1);
+            border: 2px solid #FFFFFF;
+            border-radius: 50%;
+            touch-action: none;
+        }
+
+        #joystick {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: #00A9FF;
+            border-radius: 50%;
+            transform: translate(50px, 50px);
+            touch-action: none;
+        }
+
+        #fight-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: #001FFF;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #result {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        #result h1 {
+            font-size: 48px;
+            color: white;
+        }
+
+        #result button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 24px;
+        }
+    </style>
+    <script>
+        const canvas = document.querySelector('canvas');
+        const c = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const gravity = 0.5;
+        const lifeBarWidth = 200;
+
+        let gameOver = false;
+
+        class Sprite {
+            constructor({ position, velocity, imageSrc, fightImageSrc }) {
+                this.position = position;
+                this.velocity = velocity;
+                this.height = 200;
+                this.width = 100;
+                this.image = new Image();
+                this.image.src = imageSrc;
+                this.fightImageSrc = fightImageSrc;
+                this.defaultImageSrc = imageSrc;
+                this.life = 100;
+                this.isAttacking = false;
+            }
+
+            draw() {
+                c.drawImage(this.image, this.position.x, this.position.y, this.width, this.height);
+            }
+
+            update() {
+                if (gameOver) return;
+                this.draw();
+                this.position.x += this.velocity.x;
+                this.position.y += this.velocity.y;
+
+                // Gravity and boundaries
+                if (this.position.y + this.height >= canvas.height) {
+                    this.velocity.y = 0;
+                    this.position.y = canvas.height - this.height;
+                } else this.velocity.y += gravity;
+
+                if (this.position.x <= 0) this.position.x = 0;
+                if (this.position.x + this.width >= canvas.width) this.position.x = canvas.width - this.width;
+            }
+
+            fight() {
+                if (!this.isAttacking) {
+                    this.isAttacking = true;
+                    this.image.src = this.fightImageSrc;
+                    setTimeout(() => {
+                        this.image.src = this.defaultImageSrc;
+                        this.isAttacking = false;
+                    }, 500); // Change image back after 500ms
+                }
+            }
+        }
+
+        const player = new Sprite({
+            position: { x: 50, y: 50 },
+            velocity: { x: 0, y: 0 },
+            imageSrc: '/storage/emulated/0/Download/335b5ac5-cb9a-46a9-8ae1-593bb2c41a9f.jpeg',
+            fightImageSrc: '/storage/emulated/0/Download/335b5ac5-cb9a-46a9-8ae1-593bb2c41a9f.jpeg',
+        });
+
+        const robot = new Sprite({
+            position: { x: canvas.width - 100, y: 50 },
+            velocity: { x: 2, y: 0 },
+            imageSrc: '/storage/emulated/0/Download/335b5ac5-cb9a-46a9-8ae1-593bb2c41a9f.jpeg',
+            fightImageSrc: '/storage/emulated/0/Download/335b5ac5-cb9a-46a9-8ae1-593bb2c41a9f.jpeg',
+        });
+
+        function drawLifeBar(character, x, y) {
+            c.fillStyle = 'gray';
+            c.fillRect(x, y, lifeBarWidth, 20);
+
+            c.fillStyle = 'green';
+            c.fillRect(x, y, (character.life / 100) * lifeBarWidth, 20);
+        }
+
+        function robotAI() {
+            if (gameOver) return;
+
+            // Basic movement: Robot moves left and right
+            if (robot.position.x <= 0 || robot.position.x + robot.width >= canvas.width) {
+                robot.velocity.x *= -1; // Reverse direction on hitting a boundary
+            }
+
+            // Fight if close to player
+            const distance = Math.abs(player.position.x - robot.position.x);
+            if (distance < 100 && !robot.isAttacking) {
+                robot.fight();
+                player.life -= 10;
+                if (player.life <= 0) {
+                    player.life = 0;
+                    endGame("Robot Wins!");
+                }
+            }
+        }
+
+        function playerFight() {
+            if (gameOver) return;
+
+            player.fight();
+            const distance = Math.abs(player.position.x - robot.position.x);
+            if (distance < 100) {
+                robot.life -= 10;
+                if (robot.life <= 0) {
+                    robot.life = 0;
+                    endGame("Player Wins!");
+                }
+            }
+        }
+
+        function endGame(winner) {
+            gameOver = true;
+            document.getElementById("result").style.display = "block";
+            document.getElementById("result-text").innerText = winner;
+        }
+
+        function restartGame() {
+            gameOver = false;
+            player.life = 100;
+            robot.life = 100;
+            player.position = { x: 50, y: 50 };
+            robot.position = { x: canvas.width - 100, y: 50 };
+            document.getElementById("result").style.display = "none";
+            animate();
+        }
+
+        function animate() {
+            if (gameOver) return;
+
+            c.fillStyle = 'red';
+            c.fillRect(0, 0, canvas.width, canvas.height);
+            drawLifeBar(player, 20, 20);
+            drawLifeBar(robot, canvas.width - lifeBarWidth - 20, 20);
+            player.update();
+            robot.update();
+            robotAI(); // Control robot behavior
+            window.requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        const joystick = document.getElementById('joystick');
+        const joystickContainer = document.getElementById('joystick-container');
+        let isDragging = false;
+
+        joystickContainer.addEventListener('touchstart', () => {
+            isDragging = true;
+        });
+
+        joystickContainer.addEventListener('touchmove', (event) => {
+            if (!isDragging) return;
+
+            const touch = event.touches[0];
+            const rect = joystickContainer.getBoundingClientRect();
+
+            const x = touch.clientX - rect.left - joystick.offsetWidth / 2;
+            const y = touch.clientY - rect.top - joystick.offsetHeight / 2;
+
+            const distance = Math.sqrt(x * x + y * y);
+            const maxDistance = rect.width / 2 - joystick.offsetWidth / 2;
+
+            let constrainedX = x;
+            let constrainedY = y;
+
+            if (distance > maxDistance) {
+                const angle = Math.atan2(y, x);
+                constrainedX = Math.cos(angle) * maxDistance;
+                constrainedY = Math.sin(angle) * maxDistance;
+            }
+
+            joystick.style.transform = `translate(${constrainedX + maxDistance}px, ${constrainedY + maxDistance}px)`;
+
+            player.velocity.x = (constrainedX / maxDistance) * 10;
+            player.velocity.y = (constrainedY / maxDistance) * 10;
+        });
+
+        joystickContainer.addEventListener('touchend', () => {
+            isDragging = false;
+            joystick.style.transform = `translate(50px, 50px)`;
+            player.velocity.x = 0;
+            player.velocity.y = 0;
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</html>
