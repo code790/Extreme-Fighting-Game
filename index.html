@@ -167,7 +167,7 @@
 
             // Basic movement: Robot moves left and right
             if (robot.position.x <= 0 || robot.position.x + robot.width >= canvas.width) {
-                robot.velocity.x *= -1; // Reverse direction on hitting a boundary
+                robot.velocity.x *= 1; // Reverse direction on hitting a boundary
             }
 
             // Fight if close to player
